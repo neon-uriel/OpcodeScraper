@@ -1,6 +1,7 @@
 import requests
 from bs4 import BeautifulSoup
 from enum import Enum
+import re
 url = 'https://www.nesdev.org/obelisk-6502-guide/reference.html'
 response = requests.get(url)
 
@@ -22,7 +23,7 @@ class OpCodeData:
         self.code = code.replace('$','')
         self.mnemonic = mnemonic
         self.len = len
-        self.cycles = cycles.replace(' ','').replace('(','/*').replace(')','*/')
+        self.cycles = cycles.replace('(',' /*').replace(')','*/')
         self.mode = mode.replace('(', '').replace(')', '').replace(',','_').replace(' ','').replace('Implied','NoneAdressing')
     
 
@@ -33,28 +34,37 @@ if response.status_code == 200:
     # リクエスト成功
     html_content = response.text
     soup = BeautifulSoup(html_content, 'html.parser')
-    h3_op = soup.find_all('h3')
-    opcode_code = []
-    opcodedata = []
-    for op in h3_op:
-        opcode_code.append(op.find('a').get('name'))
+
+    #mnemonic(LDAなど)を全件取得、リスト化
+    h3List = soup.find_all('h3') #<h3>タグのlist
+    mnemonic = []#mnemonic(LDAなど)のみのlist
+    opcodedata = [] #classのOpCodeDataのlist
+    for op in h3List:
+        mnemonic.append(op.find('a').get('name'))
+    mnemonicLen = len(mnemonic) #mnemonicのlength
+    
+    #tableを取得
     table = soup.find_all('table')
-    #print(table[2].find('tr'))
-    opc_len = len(opcode_code)
-    for op in range(opc_len):
-        pos = 2 * (op + 1)
-        zero = 0
+    #mnemonic全件分、AddressingModeを取得する
+    for op in range(mnemonicLen):
+        pos = 2 * (op + 1) #AdressingModeのテーブルはサイトで2つ飛ばしで出現する。
         adrmd = table[pos].find_all("tr")
-        #print(len(adrmd))
-        for a in adrmd[1:]:
-            tbl_elm = a.get_text().split('\n')
-            #print(a.get_text().split('\n')) #1->mode,3->code,5->bytes,6->cycles
-            #print("Kobo Kanaeru:犬は好きですか？")
-            adrmd = a.find('a').get_text().replace('\n','')
-            opcodedata.append(OpCodeData(tbl_elm[3],opcode_code[op],tbl_elm[5],tbl_elm[6],adrmd))
+
+        for a in adrmd[1:]: #table内のテキストの整形
+            tbl_elm = a.find_all('td')
+            adrmd = a.find('a').get_text()
+            opcodedata.append(OpCodeData(tbl_elm[1].get_text().strip(),mnemonic[op],tbl_elm[2].get_text().strip(),tbl_elm[3].get_text().strip(),adrmd))
+    
+    #できたOpCodeDataをtxtファイルに保存する。
     f = open('opcode.txt', 'w')
     for data in opcodedata:
-        f.write('OpCode::new(0x' + data.code +', \"' + data.mnemonic + '\", ' + data.len + ', ' + data.cycles +', AddressingMode::' + data.mode + '),\n')
+        apdstr = 'OpCode::new(0x' + data.code +', \"' + data.mnemonic + '\", ' + data.len + ', ' + data.cycles +', AddressingMode::' + data.mode + '),'
+        out = ''.join(char for char in apdstr if not char.isspace())
+        f.write('\t\t'+ out + '\n')
+    f.close()
+
+    #なんかよくわからん改行が挟まってまじでうざい
+
 else:
     # エラー処理
     print("error")
