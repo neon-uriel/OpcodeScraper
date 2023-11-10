@@ -5,26 +5,14 @@ import re
 url = 'https://www.nesdev.org/obelisk-6502-guide/reference.html'
 response = requests.get(url)
 
-class AddressingMode(Enum):
-    Immediate = 0
-    ZeroPage = 1
-    ZeroPage_X = 2
-    ZeroPage_Y = 3
-    Absolute = 4
-    Absolute_X = 5
-    Absolute_Y = 6
-    Indirect_X = 7
-    Indirect_Y = 8
-    NoneAddressing = 9
-
 class OpCodeData:
     
     def __init__(self, code, mnemonic, len, cycles, mode): #initializer
-        self.code = code.replace('$','')
+        self.code = code.replace('$','').strip()
         self.mnemonic = mnemonic
-        self.len = len
-        self.cycles = cycles.replace('(',' /*').replace(')','*/')
-        self.mode = mode.replace('(', '').replace(')', '').replace(',','_').replace(' ','').replace('Implied','NoneAdressing')
+        self.len = len.strip()
+        self.cycles = cycles.replace('(',' /*').replace(')','*/').strip()
+        self.mode = mode.replace('(', '').replace(')', '').replace(',','_').replace(' ','').replace('Implied','NoneAddressing').strip()
     
 
 
@@ -53,7 +41,7 @@ if response.status_code == 200:
         for a in adrmd[1:]: #table内のテキストの整形
             tbl_elm = a.find_all('td')
             adrmd = a.find('a').get_text()
-            opcodedata.append(OpCodeData(tbl_elm[1].get_text().strip(),mnemonic[op],tbl_elm[2].get_text().strip(),tbl_elm[3].get_text().strip(),adrmd))
+            opcodedata.append(OpCodeData(tbl_elm[1].get_text(),mnemonic[op],tbl_elm[2].get_text(),tbl_elm[3].get_text(),adrmd))
     
     #できたOpCodeDataをtxtファイルに保存する。
     f = open('opcode.txt', 'w')
